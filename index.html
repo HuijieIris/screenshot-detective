@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>截图审判所 Screenshot Detective</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a keynote stage. Black room, one UV lamp (violet) that reveals what claims lack. Semantic green/amber/grey carry verdicts only. */
+:root{
+  --room:#050609;
+  --stage:#0d0f14;
+  --stage-2:#141720;
+  --line:#232733;
+  --fg:#f3f4f7;
+  --mute:#8d93a1;
+  --dim:#5b6170;
+  --uv:#a48bff;
+  --uv-deep:#6a4dff;
+  --uv-glow:rgba(140,110,255,.35);
+  --ok:#3ccf86;
+  --ok-bg:rgba(60,207,134,.12);
+  --warn:#f5b941;
+  --warn-bg:rgba(245,185,65,.12);
+  --unk:#9aa0ad;
+  --unk-bg:rgba(154,160,173,.12);
+  --scrim:rgba(3,4,7,.72);
+  --f-display:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:14px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+html,body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--room);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.7;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--room)}
+a{color:inherit}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--uv);outline-offset:3px;border-radius:6px}
+.wrap{max-width:1180px;margin:0 auto}
+.mono{font-family:var(--f-mono);letter-spacing:.06em}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+h1,h2,h3{text-wrap:balance;margin:0}
+
+/* nav */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding-block:14px;background:linear-gradient(var(--room),rgba(5,6,9,.75));backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.brand b{font-weight:700;letter-spacing:.02em}
+.brand span{color:var(--dim);font-family:var(--f-mono);font-size:11px;letter-spacing:.12em}
+.lens{width:22px;height:22px;border-radius:50%;border:2px solid var(--fg);position:relative;flex:none}
+.lens::after{content:"";position:absolute;width:8px;height:2px;background:var(--fg);right:-7px;bottom:-3px;transform:rotate(45deg);border-radius:2px}
+.lens::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--uv);box-shadow:0 0 10px var(--uv)}
+.nav nav{display:flex;gap:22px;font-size:14px;color:var(--mute)}
+.nav nav a{text-decoration:none}.nav nav a:hover{color:var(--fg)}
+@media (max-width:640px){.nav nav a:not(.go){display:none}.brand span{display:none}}
+
+/* hero */
+.hero{position:relative;padding-block:96px 72px;text-align:center;isolation:isolate}
+.uvfield{position:absolute;inset:0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));overflow:hidden;z-index:-1;
+  --x:68%;--y:42%}
+.uvfield .glow{position:absolute;inset:0;background:radial-gradient(260px circle at var(--x) var(--y),var(--uv-glow),transparent 70%);transition:background .08s}
+.uvfield .ghost{position:absolute;inset:0;
+  -webkit-mask:radial-gradient(220px circle at var(--x) var(--y),#000 0,#000 35%,transparent 72%);
+  mask:radial-gradient(220px circle at var(--x) var(--y),#000 0,#000 35%,transparent 72%)}
+.ghost span{position:absolute;white-space:nowrap;font-size:15px;color:var(--uv);opacity:.95;text-shadow:0 0 12px var(--uv-deep)}
+.ghost span i{font-style:normal;font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;margin-left:8px;padding:1px 6px;border:1px solid var(--uv);border-radius:4px}
+.grid-bg{position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:56px 56px;opacity:.28;-webkit-mask:radial-gradient(ellipse at 50% 40%,#000 20%,transparent 70%);mask:radial-gradient(ellipse at 50% 40%,#000 20%,transparent 70%)}
+.hero h1{font-family:var(--f-display);font-weight:900;font-size:clamp(76px,16vw,208px);line-height:.98;letter-spacing:-.04em;margin-top:22px;
+  background:linear-gradient(180deg,var(--fg) 30%,#9a9fb0 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:rise 1.2s cubic-bezier(.2,.7,.1,1) both}
+.hero h1 em{font-style:normal;background:linear-gradient(180deg,#d9ceff,var(--uv) 60%,var(--uv-deep));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lead{max-width:34em;margin:26px auto 0;font-size:clamp(17px,2.1vw,21px);color:var(--mute);font-weight:300;animation:rise 1.2s .15s cubic-bezier(.2,.7,.1,1) both}
+.hero .lead b{color:var(--fg);font-weight:500}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:36px;animation:rise 1.2s .3s cubic-bezier(.2,.7,.1,1) both}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:12px 22px;font-size:15px;font-weight:500;text-decoration:none;border:1px solid var(--line);background:transparent;transition:transform .2s,background .2s,border-color .2s}
+.btn:hover{transform:translateY(-1px);border-color:var(--mute)}
+.btn.primary{background:var(--fg);color:var(--room);border-color:var(--fg)}
+.btn.primary:hover{background:#fff}
+.btn.uv{background:var(--uv);color:#0b0618;border-color:var(--uv);box-shadow:0 0 0 0 var(--uv-glow);transition:box-shadow .3s,transform .2s}
+.btn.uv:hover{box-shadow:0 0 32px 4px var(--uv-glow)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.hint{margin-top:30px;font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;color:var(--dim)}
+@keyframes rise{from{transform:translateY(24px);opacity:.001}to{transform:none;opacity:1}}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.stat{padding:30px 24px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:0}
+.stat .n{font-weight:900;font-size:clamp(40px,6vw,64px);line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.stat .n small{font-size:.38em;font-weight:500;margin-left:6px;color:var(--mute);letter-spacing:0}
+.stat p{margin:10px 0 0;color:var(--mute);font-size:14px}
+@media (max-width:700px){.stats{grid-template-columns:1fr}.stat{border-right:0;border-bottom:1px solid var(--line)}.stat:last-child{border-bottom:0}}
+
+/* section heads */
+.sec{padding-block:110px 40px}
+.sec-head{max-width:760px}
+.sec-head h2{font-weight:900;font-size:clamp(34px,5.4vw,60px);line-height:1.08;letter-spacing:-.03em;margin-top:14px}
+.sec-head p{color:var(--mute);font-size:18px;font-weight:300;margin:16px 0 0;max-width:36em}
+
+/* console */
+.console{margin-top:44px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(180deg,var(--stage),var(--room));overflow:hidden;
+  box-shadow:0 40px 120px -40px rgba(106,77,255,.25)}
+.c-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.step{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);padding:6px 12px;border-radius:999px;border:1px solid transparent}
+.step .k{font-family:var(--f-mono);font-size:11px}
+.step.on{color:var(--fg);border-color:var(--line);background:var(--stage-2)}
+.step.done{color:var(--mute)}
+.step.done .k::before{content:"✓ ";color:var(--ok)}
+.case-id{font-family:var(--f-mono);font-size:11px;color:var(--dim);letter-spacing:.12em}
+.c-body{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);min-height:560px}
+.pane{padding:26px;min-width:0}
+.pane.l{border-right:1px solid var(--line);background:var(--room)}
+@media (max-width:880px){.c-body{grid-template-columns:1fr}.pane.l{border-right:0;border-bottom:1px solid var(--line)}}
+
+/* evidence label (screenshot) */
+.label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px}
+.shot{position:relative;border-radius:16px;background:#f7f7f9;color:#14161c;padding:18px 18px 14px;overflow:hidden;box-shadow:0 20px 60px -20px #000}
+.shot .who{display:flex;align-items:center;gap:10px}
+.shot .av{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#c8cbd4,#9ea3b0);flex:none}
+.shot .nm{font-weight:700;font-size:14px;line-height:1.2}
+.shot .meta{font-size:12px;color:#7a7f8c}
+.shot .tag{display:inline-block;font-size:12px;color:#4a6cf7;margin-top:12px}
+.shot .txt{font-size:15px;line-height:1.75;margin-top:6px;word-break:break-word}
+.shot .acts{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid #e3e4e9;font-size:12px;color:#7a7f8c;gap:8px}
+.shot .acts button{border:0;background:#14161c;color:#fff;border-radius:999px;padding:6px 14px;font-size:12px}
+.shot img{display:block;width:100%;border-radius:10px}
+.shot .wm{position:absolute;right:12px;top:12px;font-family:var(--f-mono);font-size:10px;color:#b7bac4;letter-spacing:.1em}
+mark{background:transparent;color:inherit;border-radius:3px;transition:background .2s,box-shadow .2s;padding:0 1px}
+.reveal mark{background:rgba(164,139,255,.18);box-shadow:inset 0 -2px 0 var(--uv-deep);cursor:pointer}
+.reveal mark[data-v="ok"]{background:rgba(60,207,134,.18);box-shadow:inset 0 -2px 0 #1f9e5f}
+.reveal mark[data-v="conflict"]{background:rgba(245,185,65,.22);box-shadow:inset 0 -2px 0 #c98a12}
+.reveal mark[data-v="unknown"]{background:rgba(120,126,140,.16);box-shadow:inset 0 -2px 0 #8a909c}
+mark sup{font-family:var(--f-mono);font-size:9px;font-weight:500;margin-left:2px;color:#5b42e0}
+mark.hot{outline:2px solid var(--uv-deep);outline-offset:1px}
+.scan{position:absolute;left:0;right:0;height:80px;top:-80px;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(164,139,255,.28) 70%,rgba(164,139,255,.9) 98%,transparent);mix-blend-mode:multiply;opacity:0}
+.scanning .scan{opacity:1;animation:scan 1.6s linear infinite}
+@keyframes scan{from{top:-80px}to{top:100%}}
+.note{font-size:12px;color:var(--dim);margin-top:12px}
+
+/* input panel */
+.tabs{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--stage);width:max-content;max-width:100%;flex-wrap:wrap}
+.tab{border:0;background:transparent;padding:8px 14px;border-radius:9px;font-size:14px;color:var(--mute)}
+.tab[aria-selected="true"]{background:var(--stage-2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line)}
+.tp{margin-top:22px}
+.cases{display:grid;gap:12px}
+.case{display:block;text-align:left;width:100%;border:1px solid var(--line);background:var(--stage);border-radius:var(--r);padding:16px 18px;transition:border-color .2s,background .2s}
+.case:hover{border-color:var(--dim)}
+.case[aria-pressed="true"]{border-color:var(--uv);background:linear-gradient(90deg,rgba(164,139,255,.08),transparent)}
+.case .t{font-weight:700;font-size:16px}
+.case .d{color:var(--mute);font-size:14px;margin-top:4px}
+.case .k{font-family:var(--f-mono);font-size:11px;color:var(--dim);letter-spacing:.12em}
+textarea,input[type=text]{width:100%;background:var(--stage);border:1px solid var(--line);border-radius:var(--r);color:var(--fg);padding:14px 16px;font:inherit;font-size:15px;line-height:1.7;resize:vertical}
+textarea:focus{outline:none;border-color:var(--uv)}
+.drop{display:grid;place-items:center;text-align:center;gap:6px;border:1px dashed var(--dim);border-radius:var(--r);padding:30px 16px;color:var(--mute);cursor:pointer;transition:border-color .2s,background .2s}
+.drop.over,.drop:hover{border-color:var(--uv);background:rgba(164,139,255,.05)}
+.drop b{color:var(--fg);font-weight:500}
+.go-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:22px;flex-wrap:wrap}
+.go-row small{color:var(--dim);font-size:13px}
+
+/* running */
+.term{font-family:var(--f-mono);font-size:13px;line-height:1.9;background:var(--room);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;min-height:280px;color:var(--mute)}
+.term .ln{display:flex;gap:12px;animation:fadein .25s both}
+.term .ts{color:var(--dim);flex:none}
+.term .ok{color:var(--ok)}.term .uvc{color:var(--uv)}.term .w{color:var(--warn)}
+.term .cursor{display:inline-block;width:8px;height:15px;background:var(--uv);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.bar{height:3px;border-radius:3px;background:var(--line);margin-top:18px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--uv-deep),var(--uv));transition:width .4s ease;box-shadow:0 0 12px var(--uv)}
+.timer{display:flex;justify-content:space-between;margin-top:10px;font-family:var(--f-mono);font-size:12px;color:var(--dim)}
+
+/* results */
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.sum{border-radius:12px;padding:14px 16px;border:1px solid var(--line);background:var(--stage)}
+.sum .c{font-size:34px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.sum .l{font-size:13px;color:var(--mute);margin-top:6px;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.sum.ok .c{color:var(--ok)}.sum.ok .dot{background:var(--ok)}
+.sum.conflict .c{color:var(--warn)}.sum.conflict .dot{background:var(--warn)}
+.sum.unknown .c{color:var(--unk)}.sum.unknown .dot{background:var(--unk)}
+@media (max-width:460px){.summary{gap:6px}.sum{padding:12px}.sum .c{font-size:26px}.sum .l{font-size:12px}}
+.claims{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:8px}
+.claim{width:100%;text-align:left;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;
+  border:1px solid var(--line);background:var(--stage);border-radius:12px;padding:14px 16px;transition:border-color .2s,transform .2s,background .2s;animation:fadein .4s both}
+.claim:hover,.claim.hot{border-color:var(--dim);background:var(--stage-2)}
+.claim .no{font-family:var(--f-mono);font-size:12px;color:var(--dim);width:22px}
+.claim .tx{font-size:15px;line-height:1.55}
+.claim .sub{display:block;font-size:12px;color:var(--dim);margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.pill.ok{color:var(--ok);background:var(--ok-bg)}
+.pill.conflict{color:var(--warn);background:var(--warn-bg)}
+.pill.unknown{color:var(--unk);background:var(--unk-bg)}
+.pill.opinion{color:var(--unk);background:transparent;border:1px dashed var(--dim)}
+@media (max-width:520px){.claim{grid-template-columns:auto minmax(0,1fr)}.claim .pill{grid-column:2;justify-self:start}}
+.fixed-line{margin-top:22px;padding:16px 18px;border-radius:12px;border:1px solid var(--line);background:var(--room);font-size:14px;color:var(--fg);display:flex;gap:10px;align-items:flex-start}
+.fixed-line .mono{color:var(--uv);font-size:11px;flex:none;margin-top:3px}
+.offline{margin-top:14px;font-size:13px;color:var(--warn);background:var(--warn-bg);border-radius:10px;padding:10px 14px}
+.res-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:var(--scrim);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:50;opacity:0;pointer-events:none;transition:opacity .3s}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);z-index:60;background:var(--stage);border-left:1px solid var(--line);
+  transform:translateX(100%);transition:transform .45s cubic-bezier(.2,.8,.1,1);display:flex;flex-direction:column;
+  padding:calc(env(safe-area-inset-top,0px) + 22px) calc(env(safe-area-inset-right,0px) + 24px) calc(env(safe-area-inset-bottom,0px) + 22px) 24px;overflow-y:auto}
+.drawer.open{transform:none}
+@media (max-width:600px){.drawer{top:auto;left:0;width:100%;max-height:88vh;border-left:0;border-top:1px solid var(--line);border-radius:20px 20px 0 0;transform:translateY(100%);
+  padding-left:calc(env(safe-area-inset-left,0px) + 20px);padding-right:calc(env(safe-area-inset-right,0px) + 20px)}}
+.d-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.x{border:1px solid var(--line);background:transparent;border-radius:999px;width:34px;height:34px;display:grid;place-items:center;color:var(--mute);font-size:18px;line-height:1}
+.x:hover{color:var(--fg);border-color:var(--mute)}
+.card-claim{font-size:22px;font-weight:700;line-height:1.4;margin:18px 0 0;letter-spacing:-.01em}
+.verdict{margin-top:20px;border-radius:14px;padding:16px 18px;border:1px solid}
+.verdict.ok{border-color:rgba(60,207,134,.35);background:var(--ok-bg)}
+.verdict.conflict{border-color:rgba(245,185,65,.35);background:var(--warn-bg)}
+.verdict.unknown{border-color:rgba(154,160,173,.35);background:var(--unk-bg)}
+.verdict .v{font-weight:700;font-size:16px;display:flex;gap:8px;align-items:center}
+.verdict.ok .v{color:var(--ok)}.verdict.conflict .v{color:var(--warn)}.verdict.unknown .v{color:var(--unk)}
+.verdict p{margin:8px 0 0;font-size:14px;color:var(--fg)}
+.d-sec{margin-top:24px}
+.d-sec h4{margin:0 0 10px;font-family:var(--f-mono);font-size:11px;letter-spacing:.16em;color:var(--dim);font-weight:500;text-transform:uppercase}
+.src{display:grid;gap:8px}
+.src div{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--room)}
+.src a b,.src b{font-size:14px;font-weight:500;display:block}
+.src a span,.src span{font-size:13px;color:var(--mute);display:block;margin-top:2px}
+.src em{font-style:normal;font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;color:var(--dim)}
+.empty-src{font-size:14px;color:var(--mute);border:1px dashed var(--line);border-radius:10px;padding:14px}
+.conflict-note{font-size:14px;color:var(--fg);border-left:2px solid var(--warn);padding:4px 0 4px 12px}
+
+/* gate modal */
+.modal{position:fixed;left:50%;top:50%;z-index:70;width:min(460px,calc(100% - 32px));transform:translate(-50%,-46%) scale(.98);opacity:0;pointer-events:none;
+  background:var(--stage);border:1px solid var(--line);border-radius:20px;padding:26px;transition:opacity .25s,transform .3s;box-shadow:0 30px 80px -20px #000}
+.modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+.modal h3{font-size:22px;font-weight:900;letter-spacing:-.01em;margin-top:10px}
+.modal p{color:var(--mute);font-size:14px;margin:10px 0 0}
+.gate-sum{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.modal .row{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.composer{margin-top:16px}
+.composer textarea{min-height:90px}
+
+/* pipeline */
+.pipe{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:48px;border-top:1px solid var(--line)}
+.pipe div{padding:22px 18px 0 0;position:relative}
+.pipe div::before{content:"";position:absolute;top:-4px;left:0;width:7px;height:7px;border-radius:50%;background:var(--fg)}
+.pipe div:last-child::before{background:var(--uv);box-shadow:0 0 10px var(--uv)}
+.pipe .k{font-family:var(--f-mono);font-size:11px;color:var(--dim);letter-spacing:.14em}
+.pipe b{display:block;font-size:44px;font-weight:900;line-height:1.1;margin-top:8px}
+.pipe p{margin:6px 0 0;font-size:14px;color:var(--mute)}
+@media (max-width:820px){.pipe{grid-template-columns:1fr;border-top:0;border-left:1px solid var(--line)}.pipe div{padding:0 0 26px 22px}.pipe div::before{top:8px;left:-4px}}
+
+/* manifesto */
+.mani{padding-block:120px}
+.mani p{margin:0;font-weight:900;font-size:clamp(30px,5.6vw,68px);line-height:1.18;letter-spacing:-.035em;color:var(--dim);transition:color .5s}
+.mani p+p{margin-top:28px}
+.mani p.lit{color:var(--fg)}
+.mani p.lit em{font-style:normal;color:var(--uv)}
+
+/* scale */
+.scale{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:44px}
+.tier{border:1px solid var(--line);border-radius:18px;padding:24px;background:var(--stage)}
+.tier .pill{margin-bottom:16px}
+.tier h3{font-size:22px;font-weight:700}
+.tier p{color:var(--mute);font-size:15px;margin:10px 0 0}
+.tier .rule{font-family:var(--f-mono);font-size:12px;color:var(--dim);margin-top:18px;padding-top:14px;border-top:1px solid var(--line);letter-spacing:.02em;line-height:1.6}
+@media (max-width:820px){.scale{grid-template-columns:1fr}}
+
+/* footer */
+.foot{border-top:1px solid var(--line);margin-top:110px;padding-block:36px 56px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;font-size:15px;color:var(--mute)}
+.foot h4{margin:0 0 10px;font-family:var(--f-mono);font-size:11px;letter-spacing:.16em;color:var(--fg);font-weight:500;text-transform:uppercase}
+.foot ul{margin:0;padding-left:1.1em}
+.foot p{margin:0}
+@media (max-width:760px){.foot{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+
+<header class="nav wrap">
+  <a class="brand" href="#top"><div class="lens" aria-hidden="true"></div><b>截图审判所</b><span>SCREENSHOT DETECTIVE</span></a>
+  <nav><a href="#how">原理</a><a href="#scale">结论</a><a class="go" href="#console" style="color:var(--fg)">开始审查 →</a></nav>
+</header>
+
+<main id="top">
+<section class="hero wrap" id="hero">
+  <div class="uvfield" id="uvfield" aria-hidden="true">
+    <div class="grid-bg"></div>
+    <div class="glow"></div>
+    <div class="ghost" id="ghost"></div>
+  </div>
+  <div class="eyebrow">Screenshot Detective</div>
+  <h1>证据<em>呢？</em></h1>
+  <p class="lead">每句话，都值得追问一句。</p>
+  <div class="cta">
+    <a class="btn uv" href="#console">开始审查</a>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="stats">
+    <div class="stat"><div class="n">30<small>秒</small></div><p>出结果</p></div>
+    <div class="stat"><div class="n">3<small>档结论</small></div><p>证据分级</p></div>
+    <div class="stat"><div class="n">0<small>条</small></div><p>编造来源</p></div>
+  </div>
+</section>
+
+<section class="sec wrap" id="console">
+  <div class="sec-head">
+    <h2>评论之前，先审一审。</h2>
+  </div>
+
+  <div class="console">
+    <div class="c-top">
+      <div class="steps" id="steps">
+        <div class="step on" data-s="0"><span class="k">01</span>提交</div>
+        <div class="step" data-s="1"><span class="k">02</span>查证</div>
+        <div class="step" data-s="2"><span class="k">03</span>结论</div>
+      </div>
+      <div class="case-id" id="caseId">CASE #1024-A</div>
+    </div>
+    <div class="c-body">
+      <div class="pane l">
+        <div class="label-row"><span class="eyebrow" id="exState">待审</span></div>
+        <div id="exhibit"></div>
+        <div class="note" id="exNote"></div>
+      </div>
+      <div class="pane r" id="right"></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec wrap" id="how">
+  <div class="sec-head">
+    <h2>三步，看清一张截图。</h2>
+  </div>
+  <div class="pipe">
+    <div><span class="k">01</span><b>拆</b><p>拆成可核查的句子</p></div>
+    <div><span class="k">02</span><b>查</b><p>每句交叉查证</p></div>
+    <div><span class="k">03</span><b>判</b><p>给出证据等级</p></div>
+  </div>
+</section>
+
+<section class="mani wrap" id="mani" aria-label="三句话">
+  <p class="lit">截图不是证据，<em>主张</em>才需要证据。</p>
+  <p>我们不替你骂人，只替你把话说成可核查的句子。</p>
+  <p>查不到，也请你先别审判。</p>
+</section>
+
+<section class="sec wrap" id="scale" style="padding-top:20px">
+  <div class="sec-head">
+    <h2>只有三种结论。</h2>
+  </div>
+  <div class="scale">
+    <div class="tier"><span class="pill ok"><span class="dot" style="background:var(--ok)"></span>已证实</span><h3>多方来源一致</h3></div>
+    <div class="tier"><span class="pill conflict"><span class="dot" style="background:var(--warn)"></span>证据冲突</span><h3>说法互相矛盾</h3></div>
+    <div class="tier"><span class="pill unknown"><span class="dot" style="background:var(--unk)"></span>暂无法核实</span><h3>查不到可靠来源</h3></div>
+  </div>
+</section>
+
+<footer class="foot wrap" id="about">
+  <p>不人肉，不定罪，不编造来源。</p>
+  <p class="mono" style="font-size:11px;color:var(--dim)">教学案例为虚构 · 查证由元宝搜索提供</p>
+</footer>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-label="证据卡"></aside>
+<div class="modal" id="gate" role="dialog" aria-modal="true" aria-labelledby="gateT"></div>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- hero UV lamp ---------- */
+const ghosts=[["据知情人士透露","无来源"],["已经有200多人被坑了","待核实"],["截图为证！","截图≠证据"],["听说上个月被罚过款","无出处"],["转发让更多人看到","情绪动员"],["懂的都懂","不可证伪"],["女司机逆行导致","待核实"],["细思极恐","主观评价"],["官方都没敢回应","推断"],["我朋友就是当事人","单一信源"],["已经实锤了","实锤在哪"],["大家千万别去","主观评价"]];
+const pos=[[8,18],[62,12],[30,30],[74,34],[4,52],[46,58],[80,62],[18,76],[56,82],[36,8],[88,86],[2,90]];
+$('#ghost').innerHTML=ghosts.map((g,i)=>`<span style="left:${pos[i][0]}%;top:${pos[i][1]}%">${g[0]}<i>${g[1]}</i></span>`).join('');
+const uv=$('#uvfield'),hero=$('#hero');
+let auto=true,t0=performance.now();
+hero.addEventListener('pointermove',e=>{auto=false;const r=uv.getBoundingClientRect();uv.style.setProperty('--x',(e.clientX-r.left)+'px');uv.style.setProperty('--y',(e.clientY-r.top)+'px')});
+hero.addEventListener('pointerleave',()=>{auto=true;t0=performance.now()});
+if(!RM){(function loop(t){if(auto){const k=(t-t0)/2600;uv.style.setProperty('--x',(50+30*Math.sin(k))+'%');uv.style.setProperty('--y',(45+22*Math.sin(k*1.7))+'%')}requestAnimationFrame(loop)})(performance.now())}
+
+/* ---------- manifesto lighting ---------- */
+const mp=[...document.querySelectorAll('#mani p')];
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('lit')}),{rootMargin:'0px 0px -35% 0px'});
+mp.forEach(p=>io.observe(p));
+
+/* ---------- data ---------- */
+const V={ok:{name:'已证实',cls:'ok'},conflict:{name:'证据冲突',cls:'conflict'},unknown:{name:'暂无法核实',cls:'unknown'}};
+const CASES=[
+ {id:'A',code:'CASE #1024-A',title:'夜市“避雷帖”',desc:'一条消费差评，正在被几百人转发。',
+  who:'吃货小队长',meta:'2 小时前 · 转发 1.2万 · 评论 3,481',tag:'#青禾路夜市避雷#',
+  parts:['【避雷】',{c:0,t:'青禾路夜市第三排那家烤冷面'},'，',{c:1,t:'10 元套餐说好加肠结果没加'},'，',{c:2,t:'老板娘态度超差，玩不起'},'！',{c:3,t:'听说他们家上个月还被市监局罚过款'},'，',{c:4,t:'已经有 200 多人被坑了'},'，大家千万别去！'],
+  claims:[
+   {t:'摊位位于青禾路夜市第三排',v:'ok',why:'夜市公布的摊位分布图与两篇探店笔记位置一致。',src:[['青禾路夜市 · 摊位分布图','管理方公示，第三排 C-07 为烤冷面'],['本地生活号 · 夜市探店合集','图文提及该摊位，位置一致']]},
+   {t:'10 元套餐包含烤肠',v:'conflict',why:'摊位价目表与发帖人的说法不一致。',conflict:'价目表写的是“10 元基础款，加肠 +2 元”；发帖人认为 10 元已含肠。可能是沟通误会，也可能是价目表后来改过，目前无法判断。',src:[['摊位价目表照片','多名食客上传，拍摄于近一个月内'],['原帖评论区','发帖人补充“没看到价目表”']]},
+   {t:'老板娘态度超差，玩不起',v:'unknown',op:true,why:'这是主观评价，描述的是感受而不是事实，无法被证实或证伪。',src:[]},
+   {t:'上个月被市场监管部门罚过款',v:'unknown',why:'在公开的行政处罚公示中，检索不到与该摊位或经营者相关的记录。“听说”本身没有出处。',src:[]},
+   {t:'已有 200 多人被坑',v:'unknown',why:'数字没有出处。评论区多数是转发和附和，自述亲自消费并遇到同样问题的只有 3 条。',src:[['原帖评论区抽样','前 500 条评论中自述消费者 3 条']]}
+  ]},
+ {id:'B',code:'CASE #1024-B',title:'热搜截图 · 事故首发',desc:'事故刚发生，第一条说法已经冲上热搜。',
+  who:'滨江同城快讯',meta:'38 分钟前 · 转发 8.6万 · 评论 2.1万',tag:'#滨江大桥事故#',
+  parts:[{c:0,t:'今早滨江大桥发生三车相撞'},'！',{c:1,t:'一名女司机逆行导致事故'},'，',{c:2,t:'现场已有 5 人受伤送医'},'，',{c:3,t:'据说交警称该司机涉嫌酒驾'},'。',{c:4,t:'这种人就该终身禁驾'},'！'],
+  claims:[
+   {t:'滨江大桥发生三车相撞',v:'ok',why:'交警通报与两家媒体的现场报道一致。',src:[['滨江交警 · 情况通报','确认上午发生三车碰撞事故'],['滨江日报 · 现场报道','记者现场确认三车受损']]},
+   {t:'事故由女司机逆行导致',v:'conflict',why:'最早的快讯这样写，但后续官方通报给出的原因不同。',conflict:'通报称系一辆货车越线行驶，撞上对向正常行驶的车辆；“女司机逆行”只出现在事故初期的转载快讯里。',src:[['滨江交警 · 情况通报','事故原因：货车越线'],['早期转载快讯','称“女司机逆行”，未注明信源']]},
+   {t:'已有 5 人受伤送医',v:'conflict',why:'伤亡人数与官方口径不一致。',conflict:'通报称 3 人受轻伤，均无生命危险；“5 人”出自一条现场目击者的转述。',src:[['滨江交警 · 情况通报','3 人轻伤'],['目击者视频配文','称“至少 5 人”']]},
+   {t:'交警称该司机涉嫌酒驾',v:'unknown',why:'通报全文没有提及酒驾，也未检索到任何权威来源支持这一说法。“据说”不是信源。',src:[]},
+   {t:'这种人就该终身禁驾',v:'unknown',op:true,why:'这是情绪表达，而且它针对的对象本身就可能是错的。',src:[]}
+  ]}
+];
+
+/* ---------- state ---------- */
+let mode='case',caseIdx=0,job=null,imgURL=null,draftText='',imgText='';
+const steps=[...document.querySelectorAll('.step')];
+function setStep(n){steps.forEach((s,i)=>{s.classList.toggle('on',i===n);s.classList.toggle('done',i<n)})}
+
+/* ---------- exhibit rendering ---------- */
+function postHTML(c,reveal){
+  const txt=c.parts.map(p=>typeof p==='string'?esc(p):`<mark data-c="${p.c}" data-v="${c.claims[p.c].v}">${esc(p.t)}${reveal?`<sup>${p.c+1}</sup>`:''}</mark>`).join('');
+  return `<div class="shot ${reveal?'reveal':''}" id="shot"><div class="scan"></div><span class="wm">SCREENSHOT</span>
+    <div class="who"><div class="av"></div><div><div class="nm">${esc(c.who)}</div><div class="meta">${esc(c.meta)}</div></div></div>
+    ${c.tag?`<span class="tag">${esc(c.tag)}</span>`:''}<div class="txt">${txt}</div>
+    <div class="acts"><span>♡ 赞　↻ 转发</span><button type="button" id="goComment">去评论</button></div></div>`;
+}
+function customPostHTML(j,reveal){
+  const txt=j.parts.map(p=>typeof p==='string'?esc(p):`<mark data-c="${p.c}" data-v="${j.claims[p.c].v}">${esc(p.t)}${reveal?`<sup>${p.c+1}</sup>`:''}</mark>`).join('');
+  return `<div class="shot ${reveal?'reveal':''}" id="shot"><div class="scan"></div>${j.img?`<img src="${j.img}" alt="你上传的截图">`:''}
+    ${txt?`<div class="txt" style="${j.img?'margin-top:14px':''}">${txt}</div>`:''}
+    <div class="acts"><span>${j.img?'你上传的截图':'你粘贴的内容'}</span><button type="button" id="goComment">去评论</button></div></div>`;
+}
+function renderExhibit(reveal){
+  const ex=$('#exhibit');
+  if(job){ex.innerHTML=job.custom?customPostHTML(job,reveal):postHTML(job,reveal)}
+  else if(mode==='case'){ex.innerHTML=postHTML(CASES[caseIdx],false)}
+  else if(mode==='image'&&imgURL){ex.innerHTML=`<div class="shot"><img src="${imgURL}" alt="你上传的截图"></div>`}
+  else{const t=mode==='text'?draftText:imgText;
+    ex.innerHTML=`<div class="shot"><div class="txt" style="color:${t?'inherit':'#9aa0ad'}">${t?esc(t):'在右侧粘贴内容，这里会显示待审的证物。'}</div></div>`}
+  $('#exNote').textContent='';
+  const g=$('#goComment');if(g)g.onclick=openGate;
+  wireMarks();
+}
+
+/* ---------- input panel ---------- */
+function renderInput(){
+  job=null;setStep(0);$('#exState').textContent='待审';
+  $('#caseId').textContent=mode==='case'?CASES[caseIdx].code:'CASE #1024-你的线索';
+  $('#right').innerHTML=`
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-case" aria-selected="${mode==='case'}" data-m="case">教学案例</button>
+      <button class="tab" role="tab" id="tab-text" aria-selected="${mode==='text'}" data-m="text">粘贴文字</button>
+      <button class="tab" role="tab" id="tab-image" aria-selected="${mode==='image'}" data-m="image">上传截图</button>
+    </div>
+    <div class="tp">${
+      mode==='case'?`<div class="cases">${CASES.map((c,i)=>`<button type="button" class="case" aria-pressed="${i===caseIdx}" data-i="${i}"><div class="t">${c.title}</div></button>`).join('')}</div>`
+      :mode==='text'?`<textarea id="txtIn" rows="7" placeholder="粘贴你刚刷到的内容">${esc(draftText)}</textarea>`
+      :`<label class="drop" id="drop" for="fileIn"><b>上传截图</b></label><input type="file" id="fileIn" accept="image/*" hidden>
+        <textarea id="imgTxt" rows="3" style="margin-top:14px" placeholder="补充说明（可不填）">${esc(imgText)}</textarea>`
+    }</div>
+    <div class="go-row"><small></small><button class="btn uv" id="run" type="button">开始审查 →</button></div>`;
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{mode=b.dataset.m;renderInput();renderExhibit(false)});
+  document.querySelectorAll('.case').forEach(b=>b.onclick=()=>{caseIdx=+b.dataset.i;renderInput();renderExhibit(false)});
+  const ti=$('#txtIn');if(ti)ti.oninput=()=>{draftText=ti.value;renderExhibit(false)};
+  const it=$('#imgTxt');if(it)it.oninput=()=>{imgText=it.value};
+  const fi=$('#fileIn'),dr=$('#drop');
+  if(fi){
+    const take=f=>{if(!f||!f.type.startsWith('image/'))return;const r=new FileReader();r.onload=()=>{imgURL=r.result;renderExhibit(false);dr.querySelector('b').textContent='已载入：'+f.name}; r.readAsDataURL(f)};
+    fi.onchange=()=>take(fi.files[0]);
+    ['dragover','dragenter'].forEach(ev=>dr.addEventListener(ev,e=>{e.preventDefault();dr.classList.add('over')}));
+    ['dragleave','drop'].forEach(ev=>dr.addEventListener(ev,e=>{e.preventDefault();dr.classList.remove('over')}));
+    dr.addEventListener('drop',e=>take(e.dataTransfer.files[0]));
+    if(imgURL)dr.querySelector('b').textContent='已载入截图，可重新选择';
+  }
+  $('#run').onclick=start;
+}
+
+/* ---------- heuristic for free input ---------- */
+const SUBJ=/(垃圾|恶心|玩不起|太差|超差|无语|气死|渣|离谱|活该|该死|滚|骗子|黑心|良心|吐了|服了|绝了|千万别|避雷|就该|必须|真的是|太过分|无良|丧心病狂|细思极恐|懂的都懂)/;
+function buildCustom(text,img){
+  const segs=text.split(/(?<=[。！？!?；;\n])/).map(s=>s.trim()).filter(Boolean);
+  const parts=[],claims=[];
+  segs.forEach(s=>{
+    const core=s.replace(/[。！？!?；;\s]+$/,'');
+    if(core.length<4||claims.length>=8){parts.push(s);return}
+    const op=SUBJ.test(core)&&!/\d/.test(core);
+    parts.push({c:claims.length,t:core});parts.push(s.slice(core.length));
+    claims.push({t:core,v:'unknown',op,why:op?'这句话主要是情绪或评价，描述的是感受而不是可以查证的事实。':'离线演示没有接入元宝搜索，这条主张未检索到任何来源。按规则，没有来源就不能标为“已证实”。',src:[]});
+  });
+  return {custom:true,code:'CASE #1024-你的线索',parts,claims,img};
+}
+
+/* ---------- run ---------- */
+function start(){
+  if(mode!=='case'){
+    const text=(mode==='text'?draftText:imgText).trim();
+    const img=mode==='image'?imgURL:null;
+    if(!text&&!img){const r=$('.go-row small');r.textContent=mode==='image'?'请先上传截图':'请先粘贴内容';r.style.color='var(--warn)';return}
+    return startLive(text,img);
+  }
+  job=CASES[caseIdx];
+  setStep(1);$('#exState').textContent='审查中';
+  renderExhibit(false);$('#shot').classList.add('scanning');
+  const n=job.claims.length;
+  $('#right').innerHTML=`<div class="term" id="term" aria-live="polite"></div>
+    <div class="bar"><i id="bar"></i></div><div class="timer"><span id="phase">准备中</span><span id="clock">00.0s</span></div>`;
+  const lines=[
+   ['读取证物','载入截图 · 清除水印与界面噪声','','识别'],
+   ['OCR',`识别完成 · ${job.parts.length} 个文本片段`,'ok','识别'],
+   ['拆解',`提取可核查主张 <span class="uvc">${n}</span> 条`,'','拆解主张'],
+   ...job.claims.filter(c=>c.op).map(c=>['过滤',`「${esc(c.t.slice(0,14))}${c.t.length>14?'…':''}」→ 主观评价，不可核实`,'w','拆解主张']),
+   ...job.claims.map((c,i)=>['元宝搜索',`检索 ${i+1}/${n} · ${esc(c.t.slice(0,16))}${c.t.length>16?'…':''} → ${c.src.length?`<span class="ok">${c.src.length} 个来源</span>`:'<span class="w">无可靠结果</span>'}`,'','交叉查证']),
+   ['交叉比对','比对来源一致性，标记冲突','', '交叉查证'],
+   ['生成','证据卡已生成 · 无来源条目一律标为暂无法核实','ok','生成证据卡']
+  ];
+  const term=$('#term'),bar=$('#bar'),phase=$('#phase'),clock=$('#clock');
+  const tStart=performance.now();const tick=setInterval(()=>{clock.textContent=((performance.now()-tStart)/1000).toFixed(1).padStart(4,'0')+'s'},100);
+  const gap=RM?60:Math.max(260,3600/lines.length);
+  lines.forEach((l,i)=>setTimeout(()=>{
+    logLine(term,i,l);bar.style.width=((i+1)/lines.length*100)+'%';phase.textContent=l[3];
+    if(i===lines.length-1)setTimeout(()=>{clearInterval(tick);showResults(((performance.now()-tStart)/1000).toFixed(1))},RM?50:600);
+  },i*gap));
+}
+function logLine(term,i,l){
+  const old=term.querySelector('.cursor');if(old)old.remove();
+  const d=document.createElement('div');d.className='ln';
+  d.innerHTML=`<span class="ts">[${String(i+1).padStart(2,'0')}]</span><span><span class="${l[2]}">${l[0]}</span> · ${l[1]} <span class="cursor"></span></span>`;
+  term.appendChild(d);term.scrollTop=term.scrollHeight;
+}
+
+/* ---------- live mode: Vercel /api/check → Dify ---------- */
+// Shrink the screenshot before upload (Vercel request body limit is 4.5 MB)
+function shrink(dataURL,max=1600){
+  return new Promise(res=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height));
+    const c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',0.85))};im.onerror=()=>res(dataURL);im.src=dataURL});
+}
+// ---- Dify answer format: 【判断】<结论>\n\n<理由>\n\n依据\n1. [标题](url) ----
+function parseAnswer(ans){
+  const m=ans.match(/【判断】\s*([^\n]+)/);
+  if(!m)return {refused:true,message:ans.replace(/【[^】]*】/g,'').trim()||'这段内容里没有可以核查的公开事实。'};
+  const word=m[1].trim();
+  const after=ans.slice(m.index+m[0].length);
+  const cut=after.search(/\n\s*(依据|来源|参考)/);
+  const reason=(cut>=0?after.slice(0,cut):after).replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim();
+  const src=[];const re=/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;let x;
+  while((x=re.exec(ans))&&src.length<3)src.push([x[1],new URL(x[2]).hostname.replace(/^www\./,''),x[2]]);
+  let v='unknown';
+  if(/争议|冲突|部分|不实|不属实|谣言|虚假|矛盾|误导|反转/.test(word))v='conflict';
+  else if(/已证实|属实|真实|确认|可信/.test(word))v='ok';
+  if(v==='ok'&&!src.length)v='unknown'; // 无来源不得标“已证实”
+  return {word,reason,src,v};
+}
+function sentences(text){return text.split(/(?<=[，,。！？!?；;\n])/).filter(s=>s.trim())}
+// 只走服务端 /api/check。浏览器端不持有任何 Dify 凭证。
+// Dify 的 App-Code 就是调用额度本身，放在前端等于把额度公开送人。
+async function callDify(text,image){
+  if(location.protocol==='file:'){
+    throw new Error('本地直接打开文件无法调用查证服务，请用 vercel dev 或部署后使用。');
+  }
+  const body=JSON.stringify(image?{text,image}:{text});
+  let r;
+  try{
+    r=await fetch('/api/check',{method:'POST',headers:{'Content-Type':'application/json'},body});
+  }catch{
+    throw new Error('查证服务连不上，请检查网络或稍后重试。');
+  }
+  const d=await r.json().catch(()=>({error:'服务返回异常（'+r.status+'）'}));
+  if(!r.ok||d.error)throw new Error(d.error||('HTTP '+r.status));
+  if(!d.answer)throw new Error('查证服务没有返回内容');
+  return d.answer;
+}
+function buildJob(text,img,ans){
+  const res=parseAnswer(ans);
+  const segs=sentences(text||'');
+  const isOp=s=>SUBJ.test(s)&&!/\d/.test(s);
+  const facts=segs.filter(s=>!isOp(s)).map(s=>s.replace(/[，,。！？!?；;\s]+$/,'')).filter(s=>s.length>=4).join('，');
+  const main={t:res.refused?'整段内容':facts?(facts.length>60?facts.slice(0,60)+'…':facts):(img?'截图中的说法':text.trim()),
+    v:res.refused?'unknown':res.v,why:res.refused?res.message:res.reason,src:res.refused?[]:res.src,
+    conflict:!res.refused&&res.v==='conflict'?res.reason:'',word:res.refused?'不在核查范围':res.word};
+  if(main.conflict)main.why='Dify 判断：'+res.word;
+  const claims=[main];const parts=[];
+  segs.forEach(s=>{const core=s.replace(/[，,。！？!?；;\s]+$/,'');
+    if(isOp(s)&&core.length>=2){parts.push({c:claims.length,t:core});parts.push(s.slice(core.length));
+      claims.push({t:core,v:'unknown',op:true,why:'这句话是情绪或评价，描述的是感受，无法查证。',src:[]})}
+    else if(core.length>=4&&!res.refused){parts.push({c:0,t:core});parts.push(s.slice(core.length))}
+    else parts.push(s)});
+  return {custom:true,live:true,claims,img,parts};
+}
+async function startLive(text,img){
+  job={custom:true,live:true,parts:text?[text]:[],claims:[],img};
+  setStep(1);$('#exState').textContent='审查中';
+  renderExhibit(false);$('#shot').classList.add('scanning');
+  $('#right').innerHTML=`<div class="term" id="term" aria-live="polite" style="max-height:360px;overflow:auto"></div>
+    <div class="bar"><i id="bar"></i></div><div class="timer"><span id="phase">识别</span><span id="clock">00.0s</span></div>`;
+  const term=$('#term'),bar=$('#bar'),phase=$('#phase'),clock=$('#clock');
+  const tStart=performance.now();const tick=setInterval(()=>{clock.textContent=((performance.now()-tStart)/1000).toFixed(1).padStart(4,'0')+'s'},100);
+  const script=[['读取证物',img?'载入截图 · 压缩上传':'载入文本','','识别'],['识别',img?'OCR 读取截图文字':'清洗文本','','识别'],['拆解','提取待核查要点','','拆解主张'],['元宝搜索','联网检索中','uvc','交叉查证'],['交叉比对','比对来源一致性','','交叉查证'],['生成','整理证据卡','','生成证据卡']];
+  let k=0,pct=4;logLine(term,k,script[k]);k++;
+  const prog=setInterval(()=>{if(k<script.length){logLine(term,k,script[k]);phase.textContent=script[k][3];k++}
+    pct=Math.min(94,pct+(94-pct)*0.07);bar.style.width=pct+'%'},2600);
+  try{
+    const ans=await callDify(text,img?await shrink(img):null);
+    job=buildJob(text,img,ans);
+    clearInterval(prog);clearInterval(tick);
+    const m=job.claims[0];
+    logLine(term,k,['完成',`结论：${esc(m.word)} · ${m.src.length} 个来源`,'ok','完成']);bar.style.width='100%';
+    setTimeout(()=>showResults(((performance.now()-tStart)/1000).toFixed(1)),RM?50:500);
+  }catch(e){
+    clearInterval(prog);clearInterval(tick);bar.style.width='100%';
+    logLine(term,k,['失败',esc(e.message),'w','失败']);
+    $('#exState').textContent='审查失败';$('#shot').classList.remove('scanning');
+    const row=document.createElement('div');row.className='res-actions';
+    row.innerHTML=`<button class="btn primary" type="button" id="retry">重试</button><button class="btn" type="button" id="back">返回</button>`;
+    $('#right').appendChild(row);$('#retry').onclick=()=>startLive(text,img);$('#back').onclick=()=>{renderInput();renderExhibit(false)};
+  }
+}
+
+/* ---------- results ---------- */
+function showResults(secs){
+  setStep(2);$('#exState').textContent='已审 · 点击高亮查看';
+  renderExhibit(true);
+  const cnt={ok:0,conflict:0,unknown:0};job.claims.forEach(c=>cnt[c.v]++);
+  const op=job.claims.filter(c=>c.op).length;
+  $('#right').innerHTML=`
+    <div class="label-row"><span class="eyebrow">${job.claims.length} 条主张 · ${secs}s</span></div>
+    <div class="summary">
+      <div class="sum ok"><div class="c">${cnt.ok}</div><div class="l"><span class="dot"></span>已证实</div></div>
+      <div class="sum conflict"><div class="c">${cnt.conflict}</div><div class="l"><span class="dot"></span>证据冲突</div></div>
+      <div class="sum unknown"><div class="c">${cnt.unknown}</div><div class="l"><span class="dot"></span>暂无法核实</div></div>
+    </div>
+        <ul class="claims">${job.claims.map((c,i)=>`<li><button type="button" class="claim" data-c="${i}" style="animation-delay:${i*70}ms">
+      <span class="no">${String(i+1).padStart(2,'0')}</span>
+      <span class="tx">${esc(c.t)}</span>
+      <span class="pill ${c.op?'opinion':V[c.v].cls}">${c.op?'主观评价':V[c.v].name}</span></button></li>`).join('')}</ul>
+    <div class="fixed-line"><span>查不到也是结果，请勿把传闻当事实。</span></div>
+    <div class="res-actions"><button class="btn primary" type="button" id="toGate">去评论</button><button class="btn" type="button" id="again">重新审查</button></div>`;
+  document.querySelectorAll('.claim').forEach(b=>{b.onclick=()=>openCard(+b.dataset.c);b.onmouseenter=()=>hot(+b.dataset.c,true);b.onmouseleave=()=>hot(+b.dataset.c,false)});
+  $('#toGate').onclick=openGate;
+  $('#again').onclick=()=>{renderInput();renderExhibit(false)};
+}
+function hot(i,on){document.querySelectorAll(`mark[data-c="${i}"]`).forEach(m=>m.classList.toggle('hot',on));const b=document.querySelector(`.claim[data-c="${i}"]`);if(b)b.classList.toggle('hot',on)}
+function wireMarks(){document.querySelectorAll('.reveal mark').forEach(m=>{const i=+m.dataset.c;m.onclick=()=>openCard(i);m.onmouseenter=()=>hot(i,true);m.onmouseleave=()=>hot(i,false)})}
+
+/* ---------- evidence card drawer ---------- */
+const drawer=$('#drawer'),scrim=$('#scrim'),gate=$('#gate');
+let lastFocus=null;
+function openCard(i){
+  const c=job.claims[i],v=V[c.v];lastFocus=document.activeElement;
+  drawer.innerHTML=`<div class="d-head"><span class="eyebrow">${i+1} / ${job.claims.length}</span><button class="x" type="button" id="dx" aria-label="关闭">×</button></div>
+    <p class="card-claim">“${esc(c.t)}”</p>
+    <div class="verdict ${v.cls}"><div class="v"><span class="dot" style="background:currentColor"></span>${v.name}${c.op?' · 主观评价':''}${c.word&&c.word!==v.name?` · ${esc(c.word)}`:''}</div><p>${esc(c.why)}</p></div>
+    ${c.conflict?`<div class="d-sec"><h4>冲突</h4><div class="conflict-note">${esc(c.conflict)}</div></div>`:''}
+    <div class="d-sec"><h4>来源</h4>${c.src.length?`<div class="src">${c.src.map(s=>s[2]&&/^https?:\/\//.test(s[2])?`<a href="${esc(s[2])}" target="_blank" rel="noopener" style="text-decoration:none;display:block;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--room)"><b>${esc(s[0])} ↗</b><span>${esc(s[1])}</span></a>`:`<div><b>${esc(s[0])}</b><span>${esc(s[1])}</span></div>`).join('')}</div>`
+      :`<div class="empty-src">未找到可靠来源</div>`}</div>
+    <div class="res-actions" style="margin-top:auto;padding-top:24px">
+      ${i>0?`<button class="btn" type="button" id="dprev">← 上一条</button>`:''}${i<job.claims.length-1?`<button class="btn primary" type="button" id="dnext">下一条 →</button>`:''}</div>`;
+  drawer.classList.add('open');scrim.classList.add('open');drawer.setAttribute('aria-hidden','false');
+  $('#dx').onclick=closeAll;const p=$('#dprev'),n=$('#dnext');if(p)p.onclick=()=>openCard(i-1);if(n)n.onclick=()=>openCard(i+1);
+  $('#dx').focus();
+}
+
+/* ---------- comment gate ---------- */
+function openGate(){
+  if(!job||!$('#shot').classList.contains('reveal')){
+    // gate before analysis: nudge to run first
+    lastFocus=document.activeElement;
+    gate.innerHTML=`<h3 id="gateT">这张截图还没审过。</h3>
+      <div class="row"><button class="btn uv" type="button" id="gRun">先审查</button><button class="btn" type="button" id="gX">取消</button></div>`;
+    gate.classList.add('open');scrim.classList.add('open');
+    $('#gRun').onclick=()=>{closeAll();start()};$('#gX').onclick=closeAll;$('#gRun').focus();return;
+  }
+  lastFocus=document.activeElement;
+  const cnt={ok:0,conflict:0,unknown:0};job.claims.forEach(c=>cnt[c.v]++);
+  const risky=cnt.conflict+cnt.unknown;
+  gate.innerHTML=`<h3 id="gateT">${risky?`有 ${risky} 条说法站不住。`:'说法都有来源支持。'}</h3>
+    <div class="gate-sum"><span class="pill ok">已证实 ${cnt.ok}</span><span class="pill conflict">证据冲突 ${cnt.conflict}</span><span class="pill unknown">暂无法核实 ${cnt.unknown}</span></div>
+    <p>查不到，也请你先别审判。</p>
+    <div class="composer" id="comp" hidden><textarea id="cIn" placeholder="只评论已证实的部分"></textarea></div>
+    <div class="row" id="gRow"><button class="btn primary" type="button" id="gCards">先看证据卡</button><button class="btn" type="button" id="gGo">继续评论</button></div>`;
+  gate.classList.add('open');scrim.classList.add('open');
+  $('#gCards').onclick=()=>{closeAll();document.querySelector('.claim')?.focus();document.querySelector('.claims')?.scrollIntoView({behavior:RM?'auto':'smooth',block:'center'})};
+  $('#gGo').onclick=()=>{$('#comp').hidden=false;$('#gRow').innerHTML=`<button class="btn primary" type="button" id="gDone">完成演示</button>`;$('#cIn').focus();
+    $('#gDone').onclick=()=>{const v=$('#cIn').value.trim();$('#gRow').innerHTML=`<p style="margin:0;color:var(--ok);font-size:14px">${v?'谢谢你先看了证据。':'不评论，也是一种答案。'}</p><button class="btn" type="button" id="gClose">关闭</button>`;$('#comp').hidden=true;$('#gClose').onclick=closeAll}};
+  $('#gCards').focus();
+}
+function closeAll(){drawer.classList.remove('open');gate.classList.remove('open');scrim.classList.remove('open');drawer.setAttribute('aria-hidden','true');if(lastFocus&&lastFocus.focus)lastFocus.focus()}
+scrim.onclick=closeAll;
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
+
+/* boot */
+renderInput();renderExhibit(false);
+})();
+</script>
+
+</body>
+</html>

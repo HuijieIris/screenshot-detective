@@ -1,0 +1,6 @@
+{
+  "name": "screenshot-detective",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" }
+}
